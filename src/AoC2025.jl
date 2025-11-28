@@ -19,6 +19,12 @@ end
 Base.isless(x::Day, y::Day) = isless(x.x, y.x)
 Base.print(io::IO, x::Day) = print(io, "Day ", x.x)
 
+function printed(x::Day)
+    s = string(x.x)
+    s = x.x < 0x0a ? ' ' * s : s
+    return "Day " * s
+end
+
 function Base.tryparse(::Type{Day}, s::AbstractString)::Union{Day, Nothing}
     u = @something tryparse(UInt8, s) return nothing
     u in 1:12 || return nothing
@@ -29,6 +35,20 @@ function parse_or_exit(::Type{Day}, s::AbstractString)::Day
     @something tryparse(Day, s) exit_with("Cannot parse as Day: '" * s * ''')
 end
 
+struct InputError
+    line::Union{Int, Nothing}
+end
+
+function show_and_exit(day::Day, err::InputError)::Union{}
+    s = "Error: Input when parsing data for ", string(day)
+    lineno = err.line
+    if lineno !== nothing
+        s *= " on line " * string(lineno)
+    end
+    println(Core.stderr, s)
+    exit(1)
+end
+
 struct Solution
     p1::String
     p2::String
@@ -37,7 +57,7 @@ end
 
 const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x01]
 
-function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Nothing, Solution}
+function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Nothing, Solution, InputError}
     start = time()
     x = day.x
     ps = if x == 1
@@ -47,6 +67,8 @@ function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Nothing, Solut
     end
     if ps === nothing
         nothing
+    elseif ps isa InputError
+        return ps
     else
         delta = time() - start
         Solution(ps[1], ps[2], delta)
@@ -109,23 +131,30 @@ function check_for_help(args::Vector{String})
     end
 end
 
-function @main(ARGS)
+function @main(ARGS::Vector{String})
     check_for_help(ARGS)
     days = parse_days(ARGS[2:end])
     if !isdir(ARGS[1])
-        exit_with("Data directory is not an existing dir: " * ARGS[1])
+        exit_with("Data directory is not an existing directory: \"" * ARGS[1] * '"')
     end
     data = load_days(ARGS[1], days)
-    for i in eachindex(days, data)
-        day = days[i]
-        day_data = data[i]
-        if isnothing(day_data)
-            println(Core.stdout, day, ": Not yet implemented!")
+    @assert length(data) == length(days)
+    solutions = map(zip(days, data)) do ((day, day_data))
+        solution = if isnothing(day_data)
+            nothing
         else
-            solution = solve(day, ImmutableMemoryView(something(day_data)))
-            println(Core.stdout, day, ": ", time_string(solution.time))
-            println(Core.stdout, "  p1: ", solution.p1)
-            println(Core.stdout, "  p2: ", solution.p2)
+            solution = solve(day, ImmutableMemoryView(day_data))
+            solution isa InputError ? show_and_exit(day, solution) : solution
+        end
+        @NamedTuple{day::Day, solution::Union{Nothing, Solution}}((day, solution))
+    end
+    for (;day, solution) in solutions
+        if isnothing(solution)
+            println(Core.stdout, printed(day), ": Not yet implemented!")
+        else
+            println(Core.stdout, printed(day), " [", time_string(solution.time), "]:")
+            println(Core.stdout, "  Part 1: ", solution.p1)
+            println(Core.stdout, "  Part 2: ", solution.p2)
         end
         println(Core.stdout)
     end

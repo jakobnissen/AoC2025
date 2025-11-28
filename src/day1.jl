@@ -4,17 +4,17 @@ using BufferIO; line_views, CursorReader
 using StringViews: StringView
 using MemoryViews: ImmutableMemoryView
 
-import ..split_once
+import ..split_once, ..InputError
 
-function solve(data::ImmutableMemoryView{UInt8})::Tuple{String, String}
+function solve(data::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String, String}}
     (left, right) = (Int[], Int[])
-    for (line_no, line) in enumerate(line_views(CursorReader(data)))
-        (a, b) = something(split_once(StringView(line), UInt8(' ')))
-        push!(left, parse(Int, a))
-        push!(right, parse(Int, b))
+    for (line_number, line) in enumerate(Iterators.map(StringView, line_views(CursorReader(data))))
+        (a, b) = @something split_once(line, UInt8(' ')) return InputError(line_number)
+        push!(left, @something(tryparse(Int, a), return InputError(line_number)))
+        push!(right, @something(tryparse(Int, b), return InputError(line_number)))
     end
-    sort!(left)
-    sort!(right)
+    sort!(left; alg=QuickSort)
+    sort!(right; alg=QuickSort)
     right_counter = Dict{Int, Int}()
     for i in right
         right_counter[i] = get(right_counter, i, 0) + 1
