@@ -4,16 +4,20 @@ using Printf: @sprintf
 using StringViews: StringView
 using MemoryViews: ImmutableMemoryView, MemoryView
 
+struct InputError
+    line::Union{Int, Nothing}
+end
+
 include("util.jl")
 include("day1.jl")
 
 struct Day
-    # Values is between 1:12
+    # Values are between 1:12
     x::UInt8
 
     global function unsafe_day(x::UInt8)
-        new(x)
-    end 
+        return new(x)
+    end
 end
 
 Base.isless(x::Day, y::Day) = isless(x.x, y.x)
@@ -31,14 +35,6 @@ function Base.tryparse(::Type{Day}, s::AbstractString)::Union{Day, Nothing}
     return unsafe_day(u)
 end
 
-function parse_or_exit(::Type{Day}, s::AbstractString)::Day
-    @something tryparse(Day, s) exit_with("Cannot parse as Day: '" * s * ''')
-end
-
-struct InputError
-    line::Union{Int, Nothing}
-end
-
 function show_and_exit(day::Day, err::InputError)::Union{}
     s = "Error: Input when parsing data for ", string(day)
     lineno = err.line
@@ -46,7 +42,7 @@ function show_and_exit(day::Day, err::InputError)::Union{}
         s *= " on line " * string(lineno)
     end
     println(Core.stderr, s)
-    exit(1)
+    return exit(1)
 end
 
 struct Solution
@@ -89,16 +85,11 @@ end
 
 function exit_with(s::String)
     println(Core.stderr, s)
-    exit(1)
-end
-
-function parse_days(rest_args::Vector{String})::Vector{Day}
-    isempty(rest_args) && return SOLVED_DAYS
-    unique!(sort!(map(s -> parse_or_exit(Day, s), rest_args)))
+    return exit(1)
 end
 
 function load_days(data_dir::String, days::Vector{Day})::Vector{Union{Nothing, Vector{UInt8}}}
-    map(days) do day
+    return map(days) do day
         day ∈ SOLVED_DAYS || return nothing
         filename = let
             day_string = string(day.x)
@@ -124,22 +115,41 @@ Options:
   -h, --help  Print help
 """
 
+struct CLArgs
+    data_dir::String
+    days::Vector{Day}
+end
+
+function parse_args(args::Vector{String})::CLArgs
+    check_for_help(args)
+    days = parse_days(args[2:end])
+    data_dir = args[1]
+    if !isdir(data_dir)
+        exit_with("Data directory is not an existing directory: \"" * data_dir * '"')
+    end
+    return CLArgs(data_dir, days)
+end
+
 function check_for_help(args::Vector{String})
-    if isempty(args) || any(i -> (i == "--help" || i == "-h"), args)
+    return if isempty(args) || any(i -> (i == "--help" || i == "-h"), args)
         print(Core.stderr, USAGE)
         exit(0)
     end
 end
 
-function @main(ARGS::Vector{String})
-    check_for_help(ARGS)
-    days = parse_days(ARGS[2:end])
-    if !isdir(ARGS[1])
-        exit_with("Data directory is not an existing directory: \"" * ARGS[1] * '"')
+function parse_days(rest_args::Vector{String})::Vector{Day}
+    isempty(rest_args) && return SOLVED_DAYS
+    days = map(rest_args) do s
+        @something tryparse(Day, s) exit_with("Cannot parse as Day: '" * s * ''')
     end
-    data = load_days(ARGS[1], days)
-    @assert length(data) == length(days)
-    solutions = map(zip(days, data)) do ((day, day_data))
+    return unique!(sort!(days))
+end
+
+function @main(ARGS::Vector{String})
+    args = parse_args(ARGS)
+    data = load_days(args.data_dir, args.days)
+    @assert length(data) == length(args.days)
+    solutions = map(zip(args.days, data)) do ((day, day_data))
         solution = if isnothing(day_data)
             nothing
         else
@@ -148,7 +158,7 @@ function @main(ARGS::Vector{String})
         end
         @NamedTuple{day::Day, solution::Union{Nothing, Solution}}((day, solution))
     end
-    for (;day, solution) in solutions
+    for (; day, solution) in solutions
         if isnothing(solution)
             println(Core.stdout, printed(day), ": Not yet implemented!")
         else
