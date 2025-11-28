@@ -1,11 +1,17 @@
 module Day1
 
-function solve(s::String)
+using BufferIO; line_views, CursorReader
+using StringViews: StringView
+using MemoryViews: ImmutableMemoryView
+
+import ..split_once
+
+function solve(data::ImmutableMemoryView{UInt8})::Tuple{String, String}
     (left, right) = (Int[], Int[])
-    for line in eachline(IOBuffer(s))
-        (a, b) = map(i -> parse(Int, i), eachsplit(line))
-        push!(left, a)
-        push!(right, b)
+    for (line_no, line) in enumerate(line_views(CursorReader(data)))
+        (a, b) = something(split_once(StringView(line), UInt8(' ')))
+        push!(left, parse(Int, a))
+        push!(right, parse(Int, b))
     end
     sort!(left)
     sort!(right)

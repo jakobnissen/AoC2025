@@ -1,7 +1,10 @@
 module AoC2025
 
 using Printf: @sprintf
+using StringViews: StringView
+using MemoryViews: ImmutableMemoryView, MemoryView
 
+include("util.jl")
 include("day1.jl")
 
 struct Day
@@ -14,7 +17,6 @@ struct Day
 end
 
 Base.isless(x::Day, y::Day) = isless(x.x, y.x)
-
 Base.print(io::IO, x::Day) = print(io, "Day ", x.x)
 
 function Base.tryparse(::Type{Day}, s::AbstractString)::Union{Day, Nothing}
@@ -33,7 +35,9 @@ struct Solution
     time::Float64
 end
 
-function solve(day::Day, data::String)::Union{Nothing, Solution}
+const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x01]
+
+function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Nothing, Solution}
     start = time()
     x = day.x
     ps = if x == 1
@@ -67,19 +71,13 @@ function exit_with(s::String)
 end
 
 function parse_days(rest_args::Vector{String})::Vector{Day}
-    if isempty(rest_args)
-        return map(unsafe_day, 0x01:UInt8(1))
-    else
-        v = map(rest_args) do daystring
-            parse_or_exit(Day, daystring)
-        end
-        sort!(v; by=i -> i.x)
-        unique!(v)
-    end
+    isempty(rest_args) && return SOLVED_DAYS
+    unique!(sort!(map(s -> parse_or_exit(Day, s), rest_args)))
 end
 
-function load_days(data_dir::String, days::Vector{Day})
+function load_days(data_dir::String, days::Vector{Day})::Vector{Union{Nothing, Vector{UInt8}}}
     map(days) do day
+        day ∈ SOLVED_DAYS || return nothing
         filename = let
             day_string = string(day.x)
             day_string = ncodeunits(day_string) < 2 ? '0' * day_string : day_string
@@ -87,14 +85,32 @@ function load_days(data_dir::String, days::Vector{Day})
         end
         filepath = joinpath(data_dir, filename)
         isfile(filepath) || exit_with("Could not find day path: '" * filepath * ''')
-        read(filepath, String)
+        read(filepath)
+    end
+end
+
+const USAGE = """
+Solve Advent of Code 2025 in trimmed Julia
+
+Usage: aoc2025 <DATA_DIR> [DAYS]...
+
+Arguments:
+  <DATA_DIR>  Directory with input data. Each file must be named e.g. "day01.txt"
+  [DAYS]...   List of days to solve. If not passed, solve all implemented days.
+
+Options:
+  -h, --help  Print help
+"""
+
+function check_for_help(args::Vector{String})
+    if isempty(args) || any(i -> (i == "--help" || i == "-h"), args)
+        print(Core.stderr, USAGE)
+        exit(0)
     end
 end
 
 function @main(ARGS)
-    if length(ARGS) < 1
-        exit_with("Usage: aoc2025 DATADIR [DAYS...]")
-    end
+    check_for_help(ARGS)
     days = parse_days(ARGS[2:end])
     if !isdir(ARGS[1])
         exit_with("Data directory is not an existing dir: " * ARGS[1])
@@ -102,10 +118,16 @@ function @main(ARGS)
     data = load_days(ARGS[1], days)
     for i in eachindex(days, data)
         day = days[i]
-        solution = something(solve(day, data[i]))
-        println(Core.stdout, day, ": ", time_string(solution.time))
-        println(Core.stdout, "  p1: ", solution.p1)
-        println(Core.stdout, "  p2: ", solution.p2)
+        day_data = data[i]
+        if isnothing(day_data)
+            println(Core.stdout, day, ": Not yet implemented!")
+        else
+            solution = solve(day, ImmutableMemoryView(something(day_data)))
+            println(Core.stdout, day, ": ", time_string(solution.time))
+            println(Core.stdout, "  p1: ", solution.p1)
+            println(Core.stdout, "  p2: ", solution.p2)
+        end
+        println(Core.stdout)
     end
     return 0
 end
