@@ -1,0 +1,10 @@
+name = "AoC2025"
+uuid = "bf39e083-63e7-4b29-8cbc-96329322e560"
+version = "0.1.0"
+authors = ["Jakob Nybo Andersen <jakobnybonissen@gmail.com>"]
+
+[deps]
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[compat]
+Printf = "1.11.0"
