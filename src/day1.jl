@@ -1,33 +1,47 @@
 module Day1
 
-using BufferIO; line_views, CursorReader
+using BufferIO: line_views, CursorReader
 using StringViews: StringView
-using MemoryViews: ImmutableMemoryView
+using MemoryViews: MemoryView, ImmutableMemoryView
 
-import ..split_once, ..InputError
+import ..InputError, ..@nota
 
 function solve(data::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String, String}}
-    parsed = parse(data)
-    (left, right) = parsed isa InputError ? (return parsed) : parsed
-    right_counter = Dict{Int, Int}()
-    for i in right
-        right_counter[i] = get(right_counter, i, 0) + 1
+    v = @nota InputError parse(data)
+    p1 = p2 = 0
+    dial = 50
+    for i in v
+        new_dial = dial + i
+        p2 += div(abs(new_dial) % UInt, UInt(100)) % Int + ((new_dial < 1) & (dial > 0))
+        dial = mod(new_dial, 100)
+        p1 += iszero(dial)
     end
-    p1 = string(sum(abs(i - j) for (i, j) in zip(left, right); init = 0))
-    p2 = string(sum(i * get(right_counter, i, 0) for i in left; init = 0))
-    return (p1, p2)
+    return (string(p1), string(p2))
 end
 
-function parse(data::ImmutableMemoryView{UInt8})::Union{NTuple{2, ImmutableMemoryView{Int}}, InputError}
-    (left, right) = (Int[], Int[])
+function parse(data::ImmutableMemoryView{UInt8})::Union{InputError, Vector{Int32}}
+    result = Int32[]
     for (line_number, line) in enumerate(Iterators.map(StringView, line_views(CursorReader(data))))
-        (a, b) = @something split_once(line, UInt8(' ')) return InputError(line_number)
-        push!(left, @something(tryparse(Int, a), return InputError(line_number)))
-        push!(right, @something(tryparse(Int, b), return InputError(line_number)))
+        n = @something tryparse_rotation(line) return InputError(line_number)
+        push!(result, n)
     end
-    sort!(left; alg = QuickSort)
-    sort!(right; alg = QuickSort)
-    return (ImmutableMemoryView(left), ImmutableMemoryView(right))
+    return result
+end
+
+function tryparse_rotation(s::StringView{<:MemoryView})::Union{Int32, Nothing}
+    cu = codeunits(s)
+    length(cu) < 2 && return nothing
+    s = @inbounds cu[1]
+    neg = if s == UInt8('R')
+        false
+    elseif s == UInt8('L')
+        true
+    else
+        return nothing
+    end
+    n = @something tryparse(UInt32, StringView(@inbounds(cu[2:end]))) return nothing
+    n < 0 && return nothing
+    return neg ? -Int32(n) : Int32(n)
 end
 
 end # module

@@ -4,13 +4,6 @@ using Printf: @sprintf
 using StringViews: StringView
 using MemoryViews: ImmutableMemoryView, MemoryView
 
-struct InputError
-    line::Union{Int, Nothing}
-end
-
-include("util.jl")
-include("day1.jl")
-
 struct Day
     # Values are between 1:12
     x::UInt8
@@ -20,51 +13,74 @@ struct Day
     end
 end
 
-Base.isless(x::Day, y::Day) = isless(x.x, y.x)
-Base.print(io::IO, x::Day) = print(io, "Day ", x.x)
+"""
+    @nota T expr
 
-function printed(x::Day)
-    s = string(x.x)
-    s = x.x < 0x0a ? ' ' * s : s
-    return "Day " * s
+Expands to `return expr` if `expr isa T`, else `expr`.
+Useful for early return of error values.
+"""
+macro nota(T, expr)
+    return quote
+        local res = $(esc(expr))
+        isa(res, $(T)) ? (return res) : res
+    end
 end
 
-function Base.tryparse(::Type{Day}, s::AbstractString)::Union{Day, Nothing}
+Base.isless(x::Day, y::Day) = isless(x.x, y.x)
+Base.print(io::IO, x::Day) = print(io, "day ", x.x)
+
+function padded(x::Day)::String
+    return "Day " * (x.x < 10 ? " " : "") * string(x.x)
+end
+
+function Base.tryparse(::Type{Day}, s::AbstractString)
     u = @something tryparse(UInt8, s) return nothing
     u in 1:12 || return nothing
     return unsafe_day(u)
 end
 
+struct InputError
+    # Line number, if the error happens at a specific line
+    line::Union{Int, Nothing}
+end
+
 function show_and_exit(day::Day, err::InputError)::Union{}
-    s = "Error: Input when parsing data for ", string(day)
+    s = "Error when parsing input for " * string(day)
     lineno = err.line
     if lineno !== nothing
         s *= " on line " * string(lineno)
     end
-    println(Core.stderr, s)
-    return exit(1)
+    return exit_with(s)
 end
 
+include("day1.jl")
+
 struct Solution
+    # We store the solutions as strings, since we just need to print them,
+    # and since Julia doesn't yet allow having boxed "printeable" objects
+    # in trimmed code
     p1::String
     p2::String
     time::Float64
 end
 
+# A better solution here would be to store a map from the day to the related solver.
+# However, this is not possible in trimmed Julia, because that makes the function call
+# non-static.
 const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x01]
 
-function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Nothing, Solution, InputError}
+struct Unimplemented end
+
+function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Unimplemented, Solution, InputError}
     start = time()
     x = day.x
     ps = if x == 1
         Day1.solve(data)
     else
-        nothing
+        return Unimplemented()
     end
-    if ps === nothing
-        nothing
-    elseif ps isa InputError
-        return ps
+    return if ps isa InputError
+        ps
     else
         delta = time() - start
         Solution(ps[1], ps[2], delta)
@@ -72,25 +88,27 @@ function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Nothing, Solut
 end
 
 function time_string(delta::Float64)::String
-    (prefix, base) = if delta < 0.001
+    (prefix, number) = if delta < 0.001
         ("μ", delta * 1_000_000)
     elseif delta < 1
         ("m", delta * 1_000)
     else
         ("", delta)
     end
-    s = @sprintf "%.3g" base
+    s = @sprintf "%.3g" number
     return s * ' ' * prefix * 's'
 end
 
-function exit_with(s::String)
+function exit_with(s::String, errorcode::Int = 1)::Union{}
+    #throw(s)
     println(Core.stderr, s)
-    return exit(1)
+    return exit(errorcode)
 end
 
-function load_days(data_dir::String, days::Vector{Day})::Vector{Union{Nothing, Vector{UInt8}}}
+function load_day_data(data_dir::String, days::Vector{Day})::Vector{@NamedTuple{day::Day, data::Union{Nothing, Vector{UInt8}}}}
+    T = @NamedTuple{day::Day, data::Union{Nothing, Vector{UInt8}}}
     return map(days) do day
-        day ∈ SOLVED_DAYS || return nothing
+        day ∈ SOLVED_DAYS || return T((day, nothing))
         filename = let
             day_string = string(day.x)
             day_string = ncodeunits(day_string) < 2 ? '0' * day_string : day_string
@@ -98,7 +116,7 @@ function load_days(data_dir::String, days::Vector{Day})::Vector{Union{Nothing, V
         end
         filepath = joinpath(data_dir, filename)
         isfile(filepath) || exit_with("Could not find day path: '" * filepath * ''')
-        read(filepath)
+        T((day, read(filepath)))
     end
 end
 
@@ -132,8 +150,7 @@ end
 
 function check_for_help(args::Vector{String})
     return if isempty(args) || any(i -> (i == "--help" || i == "-h"), args)
-        print(Core.stderr, USAGE)
-        exit(0)
+        exit_with(USAGE, 0)
     end
 end
 
@@ -147,22 +164,22 @@ end
 
 function @main(ARGS::Vector{String})
     args = parse_args(ARGS)
-    data = load_days(args.data_dir, args.days)
-    @assert length(data) == length(args.days)
-    solutions = map(zip(args.days, data)) do ((day, day_data))
-        solution = if isnothing(day_data)
-            nothing
+    data = load_day_data(args.data_dir, args.days)
+    solutions = map(data) do day_data
+        maybe_data = day_data.data
+        solution = if isnothing(maybe_data)
+            Unimplemented()
         else
-            solution = solve(day, ImmutableMemoryView(day_data))
-            solution isa InputError ? show_and_exit(day, solution) : solution
+            solution = solve(day_data.day, ImmutableMemoryView(maybe_data))
+            solution isa InputError ? show_and_exit(day_data.day, solution) : solution
         end
-        @NamedTuple{day::Day, solution::Union{Nothing, Solution}}((day, solution))
+        @NamedTuple{day::Day, solution::Union{Unimplemented, Solution}}((day_data.day, solution))
     end
     for (; day, solution) in solutions
-        if isnothing(solution)
-            println(Core.stdout, printed(day), ": Not yet implemented!")
+        if solution === Unimplemented()
+            println(Core.stdout, padded(day), ": Not yet implemented!")
         else
-            println(Core.stdout, printed(day), " [", time_string(solution.time), "]:")
+            println(Core.stdout, padded(day), " [", time_string(solution.time), "]:")
             println(Core.stdout, "  Part 1: ", solution.p1)
             println(Core.stdout, "  Part 2: ", solution.p2)
         end
