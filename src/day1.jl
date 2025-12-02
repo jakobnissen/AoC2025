@@ -1,6 +1,6 @@
 module Day1
 
-using BufferIO: line_views, CursorReader
+using BufferIO: line_views
 using StringViews: StringView
 using MemoryViews: MemoryView, ImmutableMemoryView
 
@@ -21,7 +21,7 @@ end
 
 function parse(data::ImmutableMemoryView{UInt8})::Union{InputError, Vector{Int32}}
     result = Int32[]
-    for (line_number, line) in enumerate(Iterators.map(StringView, line_views(CursorReader(data))))
+    for (line_number, line) in enumerate(Iterators.map(StringView, line_views(data)))
         n = @something tryparse_rotation(line) return InputError(line_number)
         push!(result, n)
     end

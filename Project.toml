@@ -10,7 +10,7 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 StringViews = "354b36f9-a18e-4713-926e-db85100087ba"
 
 [compat]
-BufferIO = "0.2.1"
+BufferIO = "0.2.2"
 MemoryViews = "0.3.5"
 Printf = "1.11.0"
 StringViews = "1.3.5"

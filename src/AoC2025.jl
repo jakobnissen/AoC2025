@@ -2,7 +2,7 @@ module AoC2025
 
 using Printf: @sprintf
 using StringViews: StringView
-using MemoryViews: ImmutableMemoryView, MemoryView
+using MemoryViews: ImmutableMemoryView, MemoryView, split_at
 
 struct Day
     # Values are between 1:12
@@ -53,7 +53,9 @@ function show_and_exit(day::Day, err::InputError)::Union{}
     return exit_with(s)
 end
 
+include("utils.jl")
 include("day1.jl")
+include("day2.jl")
 
 struct Solution
     # We store the solutions as strings, since we just need to print them,
@@ -67,7 +69,7 @@ end
 # A better solution here would be to store a map from the day to the related solver.
 # However, this is not possible in trimmed Julia, because that makes the function call
 # non-static.
-const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x01]
+const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x02]
 
 struct Unimplemented end
 
@@ -76,6 +78,8 @@ function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Unimplemented,
     x = day.x
     ps = if x == 1
         Day1.solve(data)
+    elseif x == 2
+        Day2.solve(data)
     else
         return Unimplemented()
     end
@@ -115,7 +119,7 @@ function load_day_data(data_dir::String, days::Vector{Day})::Vector{@NamedTuple{
             "day" * day_string * ".txt"
         end
         filepath = joinpath(data_dir, filename)
-        isfile(filepath) || exit_with("Could not find day path: '" * filepath * ''')
+        isfile(filepath) || exit_with("No data file at expected path: \"" * filepath * '"')
         T((day, read(filepath)))
     end
 end
@@ -157,7 +161,7 @@ end
 function parse_days(rest_args::Vector{String})::Vector{Day}
     isempty(rest_args) && return SOLVED_DAYS
     days = map(rest_args) do s
-        @something tryparse(Day, s) exit_with("Cannot parse as Day: '" * s * ''')
+        @something tryparse(Day, s) exit_with("Cannot parse as day: \"" * s * "\", must be in 1-12")
     end
     return unique!(sort!(days))
 end
