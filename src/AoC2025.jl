@@ -8,9 +8,7 @@ struct Day
     # Values are between 1:12
     x::UInt8
 
-    global function unsafe_day(x::UInt8)
-        return new(x)
-    end
+    global unsafe_day(x::UInt8) = new(x)
 end
 
 """
@@ -28,10 +26,7 @@ end
 
 Base.isless(x::Day, y::Day) = isless(x.x, y.x)
 Base.print(io::IO, x::Day) = print(io, "day ", x.x)
-
-function padded(x::Day)::String
-    return "Day " * (x.x < 10 ? " " : "") * string(x.x)
-end
+padded(x::Day) = "Day " * (x.x < 10 ? " " : "") * string(x.x)
 
 function Base.tryparse(::Type{Day}, s::AbstractString)
     u = @something tryparse(UInt8, s) return nothing
@@ -57,6 +52,7 @@ include("utils.jl")
 include("day1.jl")
 include("day2.jl")
 include("day3.jl")
+include("day4.jl")
 
 struct Solution
     # We store the solutions as strings, since we just need to print them,
@@ -70,7 +66,7 @@ end
 # A better solution here would be to store a map from the day to the related solver.
 # However, this is not possible in trimmed Julia, because that makes the function call
 # non-static.
-const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x03]
+const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x04]
 
 struct Unimplemented end
 
@@ -83,6 +79,8 @@ function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Unimplemented,
         Day2.solve(data)
     elseif x == 3
         Day3.solve(data)
+    elseif x == 4
+        Day4.solve(data)
     else
         return Unimplemented()
     end
@@ -169,7 +167,7 @@ function parse_days(rest_args::Vector{String})::Vector{Day}
     return unique!(sort!(days))
 end
 
-function @main(ARGS::Vector{String})
+function (@main)(ARGS::Vector{String})
     args = parse_args(ARGS)
     data = load_day_data(args.data_dir, args.days)
     solutions = map(data) do day_data

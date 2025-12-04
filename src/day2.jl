@@ -5,27 +5,33 @@ using MemoryViews: MemoryView, ImmutableMemoryView
 
 import ..InputError, ..@nota, ..split_once
 
-# For each number of digits, say 6, we compute all the ways the digits can be split:
+# For each possible number of digits in an UINt, say 6,
+# we compute all the ways the digits can be split:
 # 2 x 3 digits, 3 x 2 digits and 6 x 1 digit.
 # For each (say, 2 x 3 digits), we compute:
-# * A modulo 10^3, to get the last 3 digits
-# * 001001, a factor to multiply to the modulo'd value. If, after multiplying, we get
-#   the same number as before modulo, then the number is periodical
-# * A boolean which is true if the split is 2 x N, i.e. suitable for part 1.
+# * A divisor, to extract to top 3 digits of the start of the range,
+#   which represents the smallest possible periodical number in the range.
+#   That is, if the range start is 312413, then the smallest number that could
+#   possibly be in this range is the first 3 digits, repeated, i.e. 312312.
+#   Similarly, we can get the largest possible periodical by doing the same operation
+#   on the end of the range.
+# * A factor 001001, used to build periodicals with the right number of digits.
+#   by multiplying all integers start:stop with this factor, we get all periodicals with 2 chunks
+#   of 3 repeated digits
 const PRECOMPUTE = let
-    result = Vector{Vector{Tuple{UInt, UInt, Bool}}}()
+    result = Vector{Vector{Tuple{UInt, UInt}}}()
     for n_digits in 1:ndigits(typemax(UInt))
         v = eltype(result)()
         for chunk_size in div(n_digits, 2):-1:1
             n_chunks, remainder = divrem(n_digits, chunk_size)
             iszero(remainder) || continue
-            is_half = (chunk_size * 2) == n_digits
             modulo = UInt(10)^(chunk_size)
             factor = UInt(1)
-            for i in 1:(n_chunks - 1)
+            for _ in 1:(n_chunks - 1)
                 factor = factor * modulo + UInt(1)
             end
-            push!(v, (factor, modulo, is_half))
+            divisor = UInt(10)^(n_digits - chunk_size)
+            push!(v, (divisor, factor))
         end
         push!(result, v)
     end
@@ -35,42 +41,40 @@ end
 function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String, String}}
     v = @nota InputError parse(mem)
     split_by_ndigits!(v)
-    p1 = p2 = 0
+    result = (0, 0)
+    periodicals = Set{UInt}()
     for range in v
-        (_p1, _p2) = count_range(range)
-        p1 += _p1
-        p2 += _p2
+        result = result .+ count_range!(periodicals, range)
     end
-    return (string(p1), string(p2))
+    return string.(result)
 end
 
-# We check each number individually. This way, we don't double count numbers such as
-# 12121212, which is both 1212 1212 and 12 12 12 12. 
-function count_range(range::UnitRange{UInt})::Tuple{Int, Int}
+function count_range!(periodicals::Set{UInt}, range::UnitRange{UInt})::Tuple{Int, Int}
     # All numbers in the range must have same number of digits, we use
     # split_by_ndigits to achieve this.
+    empty!(periodicals)
     localv = PRECOMPUTE[ndigits(first(range))]
-    p1 = p2 = 0
-    for n in range
-        for (factor, modulator, is_half) in localv
-            modded = n % modulator
-            if modded * factor == n
-                p1 += n * is_half
-                p2 += n
-                break
+    p1 = 0
+    for (div_idx, (divisor, factor)) in enumerate(localv)
+        for i in div(first(range), divisor):div(last(range), divisor)
+            periodical = factor * i
+            if periodical ∈ range
+                push!(periodicals, periodical)
+                p1 += periodical * isone(div_idx)
             end
+            periodical > last(range) && break
         end
     end
+    p2 = sum(periodicals)
     return (p1, p2)
 end
 
 # To simplify the problem, if we have a range like 94-128, we split it into multiple ranges,
 # where all number in each resulting range has the same number of digits. In this case,
 # 94-99 and 100-128.
-# Then, we can process each range more efficiently 
+# Then, we can process each range more efficiently
 function split_by_ndigits!(v::Vector{UnitRange{T}}) where {T <: Unsigned}
-    len = length(v)
-    for i in len:-1:1
+    for i in eachindex(v)
         rng = @inbounds v[i]
         (fst, lst) = (first(rng), last(rng))
         (ndfst, ndlst) = (ndigits(fst), ndigits(lst))

@@ -25,7 +25,7 @@ function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String,
 end
 
 function joltage(v::ImmutableMemoryView{T}, n::Int) where {T <: Unsigned}
-    result = 0
+    result = UInt(0)
     for digit in 1:n
         (mx, p) = findmax(v[1:(end - n + digit)])
         v = @inbounds v[(p + 1):end]

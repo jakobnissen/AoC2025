@@ -39,9 +39,9 @@ function tryparse_rotation(s::StringView{<:MemoryView})::Union{Int32, Nothing}
     else
         return nothing
     end
-    n = @something tryparse(UInt32, StringView(@inbounds(cu[2:end]))) return nothing
+    n = @something tryparse(Int32, StringView(@inbounds(cu[2:end]))) return nothing
     n < 0 && return nothing
-    return neg ? -Int32(n) : Int32(n)
+    return neg ? -n : n
 end
 
 end # module

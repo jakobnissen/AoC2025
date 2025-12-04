@@ -1,12 +1,12 @@
 const MemStrView = Union{
     StringView{<:MemoryView{UInt8}},
-    SubString{<:StringView{<:MemoryView{UInt8}}}
+    SubString{<:StringView{<:MemoryView{UInt8}}},
 }
 
 function split_once(mem::MemoryView{UInt8}, byte::UInt8)
     pos = @something findfirst(==(byte), mem) return nothing
-    left = @inbounds mem[1:pos-1]
-    right = @inbounds mem[pos+1:end]
+    left = @inbounds mem[1:(pos - 1)]
+    right = @inbounds mem[(pos + 1):end]
     return (left, right)
 end
 
