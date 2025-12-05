@@ -7,8 +7,8 @@ using BufferIO: line_views
 import ..InputError, ..@nota
 
 function solve(mem::ImmutableMemoryView{UInt8})
-    (ranges, ids) = @nota InputError parse(mem)
-    ranges = ImmutableMemoryView(collapse_ranges!(ranges))
+    (ranges_, ids) = @nota InputError parse(mem)
+    ranges = ImmutableMemoryView(collapse_ranges!(ranges_))
 
     p1 = count(i -> in_sorted_ranges(i, ranges), ids)
     p2 = sum(length, ranges; init = 0)
@@ -17,8 +17,8 @@ function solve(mem::ImmutableMemoryView{UInt8})
 end
 
 function collapse_ranges!(v::Vector{<:UnitRange})
-    sort!(v; by = first, alg = QuickSort)
     length(v) < 2 && return v
+    sort!(v; by = first, alg = QuickSort)
     wi = 1
     rng = first(v)
     (start, stop) = (first(rng), last(rng))
