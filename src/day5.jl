@@ -6,14 +6,14 @@ using BufferIO: line_views
 
 import ..InputError, ..@nota
 
-function solve(mem::ImmutableMemoryView{UInt8})
+function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, Any}}
     (ranges_, ids) = @nota InputError parse(mem)
     ranges = ImmutableMemoryView(collapse_ranges!(ranges_))
 
     p1 = count(i -> in_sorted_ranges(i, ranges), ids)
     p2 = sum(length, ranges; init = 0)
 
-    return string(p1), string(p2)
+    return (p1, p2)
 end
 
 function collapse_ranges!(v::Vector{<:UnitRange})

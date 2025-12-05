@@ -4,7 +4,7 @@ using MemoryViews: ImmutableMemoryView
 using BufferIO: line_views
 import ..InputError
 
-function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String, String}}
+function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, Any}}
     v = Vector{UInt8}(undef, 128)
     p1 = p2 = 0
     for (line_number, line) in enumerate(line_views(mem))
@@ -21,7 +21,7 @@ function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String,
         p1 += joltage(bank, 2)
         p2 += joltage(bank, 12)
     end
-    return (string(p1), string(p2))
+    return (p1, p2)
 end
 
 function joltage(v::ImmutableMemoryView{T}, n::Int) where {T <: Unsigned}

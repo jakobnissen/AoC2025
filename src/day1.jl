@@ -6,7 +6,7 @@ using MemoryViews: MemoryView, ImmutableMemoryView
 
 import ..InputError, ..@nota
 
-function solve(data::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String, String}}
+function solve(data::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, Any}}
     v = @nota InputError parse(data)
     p1 = p2 = 0
     dial = 50
@@ -16,7 +16,7 @@ function solve(data::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String
         dial = mod(new_dial, 100)
         p1 += iszero(dial)
     end
-    return (string(p1), string(p2))
+    return (p1, p2)
 end
 
 function parse(data::ImmutableMemoryView{UInt8})::Union{InputError, Vector{Int32}}

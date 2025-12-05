@@ -38,7 +38,7 @@ const PRECOMPUTE = let
     result
 end
 
-function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String, String}}
+function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, Any}}
     v = @nota InputError parse(mem)
     split_by_ndigits!(v)
     result = (0, 0)
@@ -46,7 +46,7 @@ function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{String,
     for range in v
         result = result .+ count_range!(periodicals, range)
     end
-    return string.(result)
+    return result
 end
 
 function count_range!(periodicals::Set{UInt}, range::UnitRange{UInt})::Tuple{Int, Int}

@@ -71,19 +71,23 @@ const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x05]
 
 struct Unimplemented end
 
+function stringify(x::Tuple{Any, Any})::Tuple{String, String}
+    return (string(x[1])::String, string(x[2])::String)
+end
+
 function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Unimplemented, Solution, InputError}
     start = time()
     x = day.x
     ps = if x == 1
-        Day1.solve(data)
+        stringify(Day1.solve(data))
     elseif x == 2
-        Day2.solve(data)
+        stringify(Day2.solve(data))
     elseif x == 3
-        Day3.solve(data)
+        stringify(Day3.solve(data))
     elseif x == 4
-        Day4.solve(data)
+        stringify(Day4.solve(data))
     elseif x == 5
-        Day5.solve(data)
+        stringify(Day5.solve(data))
     else
         return Unimplemented()
     end

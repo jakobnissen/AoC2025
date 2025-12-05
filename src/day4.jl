@@ -8,7 +8,7 @@ import ..InputError, ..@nota
 # The eight directions of a cell
 const DELTAS = setdiff(CartesianIndices((-1:1, -1:1)), Ref(CartesianIndex(0, 0)))
 
-function solve(mem::ImmutableMemoryView{UInt8})
+function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, Any}}
     M = @nota InputError parse(mem)
     neighbour_count = Matrix{UInt8}(undef, size(M))
     @inbounds for i in CartesianIndices(M)
@@ -33,7 +33,7 @@ function solve(mem::ImmutableMemoryView{UInt8})
         end
         (indices_to_remove, next_round) = (next_round, indices_to_remove)
     end
-    return (string(p1), string(p2))
+    return (p1, p2)
 end
 
 # We parse it as a BitMatrix with @ being true.
