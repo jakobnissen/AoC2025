@@ -16,22 +16,18 @@ function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, An
         neighbour_count[i] = count(d -> get(M, i + d, false), DELTAS) % UInt8
     end
     indices_to_remove = collect(Iterators.filter(i -> M[i] && neighbour_count[i] < 0x04, CartesianIndices(M)))
-    next_round = empty(indices_to_remove)
     p1 = length(indices_to_remove)
     p2 = 0
     while !isempty(indices_to_remove)
-        empty!(next_round)
-        p2 += length(indices_to_remove)
-        @inbounds for i in indices_to_remove
-            M[i] = false
-            for d in DELTAS
-                get(M, i + d, false) || continue
-                old = neighbour_count[i + d]
-                neighbour_count[i + d] = old - 0x01
-                old == 0x04 && push!(next_round, i + d)
-            end
+        i = pop!(indices_to_remove)
+        p2 += 1
+        M[i] = false
+        for d in DELTAS
+            get(M, i + d, false) || continue
+            old = neighbour_count[i + d]
+            neighbour_count[i + d] = old - 0x01
+            old == 0x04 && push!(indices_to_remove, i + d)
         end
-        (indices_to_remove, next_round) = (next_round, indices_to_remove)
     end
     return (p1, p2)
 end
