@@ -6,7 +6,7 @@ import ..InputError
 
 function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, Any}}
     v = Vector{UInt8}(undef, 128)
-    p1 = p2 = 0
+    p1 = p2 = UInt(0)
     for (line_number, line) in enumerate(line_views(mem))
         length(line) < 12 && return InputError(line_number)
         length(line) > length(v) && resize!(v, length(line))
@@ -21,7 +21,7 @@ function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, An
         p1 += joltage(bank, 2)
         p2 += joltage(bank, 12)
     end
-    return (p1, p2)
+    return (Int(p1), Int(p2))
 end
 
 function joltage(v::ImmutableMemoryView{T}, n::Int) where {T <: Unsigned}
@@ -29,7 +29,7 @@ function joltage(v::ImmutableMemoryView{T}, n::Int) where {T <: Unsigned}
     for digit in 1:n
         (mx, p) = findmax(v[1:(end - n + digit)])
         v = @inbounds v[(p + 1):end]
-        result = 10 * result + mx
+        result = UInt(10) * result + mx
     end
     return result
 end

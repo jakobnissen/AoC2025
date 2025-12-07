@@ -44,7 +44,7 @@ function in_sorted_ranges(i::Integer, v::ImmutableMemoryView{<:UnitRange})
     i < first(@inbounds(v[lo])) && return false
     i > last(@inbounds(v[hi])) && return false
     return @inbounds while true
-        lo < hi && return false
+        hi < lo && return false
         mid = (lo + hi) >> 1
         rng = v[mid]
         if i < first(rng)
