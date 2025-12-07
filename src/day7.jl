@@ -35,17 +35,19 @@ end
 
 function parse(mem::ImmutableMemoryView)::Union{InputError, Tuple{BitMatrix, Int}}
     lines = ImmutableMemoryView(collect(line_views(mem)))
-    isempty(lines) && return InputError(nothing)
+    isempty(lines) && return InputError(nothing, "Input is empty")
     first_line = lines[1]
     # Find starting index in first line
     start = @something findfirst(==(UInt8('S')), first_line) return InputError(1)
     # Ensure first line has nothing other than 1 S and rest is dots
     for i in eachindex(first_line)
         i == start && continue
-        first_line[i] == UInt8('.') || return InputError(1)
+        first_line[i] == UInt8('.') || return InputError(
+            1, "First line must contain only 'S' or '.'"
+        )
     end
     # All lines must have same length
-    allequal(length, lines) || return InputError(nothing)
+    allequal(length, lines) || return InputError(nothing, "Line lengths are not equal")
     M = falses(length(lines) - 1, length(first(lines)))
     # Parse all other lines than first line as ^ being true, '.' being false
     for (line_number_m1, line) in enumerate(lines[2:end])
@@ -55,7 +57,7 @@ function parse(mem::ImmutableMemoryView)::Union{InputError, Tuple{BitMatrix, Int
             elseif byte == UInt8('^')
                 true
             else
-                return InputError(line_number_m1 + 1)
+                return InputError(line_number_m1 + 1, "Invalid byte: Must be '.' or '^'")
             end
         end
     end

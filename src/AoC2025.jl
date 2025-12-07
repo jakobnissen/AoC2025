@@ -37,6 +37,11 @@ end
 struct InputError
     # Line number, if the error happens at a specific line
     line::Union{Int, Nothing}
+    msg::Union{String, Nothing}
+end
+
+function InputError(x::Union{Integer, Nothing})
+    return InputError(convert(Union{Int, Nothing}, x), nothing)
 end
 
 function show_and_exit(day::Day, err::InputError)::Union{}
@@ -44,6 +49,10 @@ function show_and_exit(day::Day, err::InputError)::Union{}
     lineno = err.line
     if lineno !== nothing
         s *= " on line " * string(lineno)
+    end
+    msg = err.msg
+    if msg !== nothing
+        s *= ": " * msg
     end
     return exit_with(s)
 end
@@ -118,7 +127,7 @@ function time_string(delta::Float64)::String
 end
 
 function exit_with(s::String, errorcode::Int = 1)::Union{}
-    throw(s)
+    #throw(s)
     println(Core.stderr, s)
     return exit(errorcode)
 end

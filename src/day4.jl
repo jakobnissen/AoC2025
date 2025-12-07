@@ -18,7 +18,7 @@ function solve(mem::ImmutableMemoryView{UInt8})::Union{InputError, Tuple{Any, An
     indices_to_remove = collect(Iterators.filter(i -> M[i] && neighbour_count[i] < 0x04, CartesianIndices(M)))
     p1 = length(indices_to_remove)
     p2 = 0
-    while !isempty(indices_to_remove)
+    @inbounds while !isempty(indices_to_remove)
         i = pop!(indices_to_remove)
         p2 += 1
         M[i] = false
@@ -36,20 +36,20 @@ end
 # This function does the obvious thing - it's long because of error handling.
 function parse(mem::ImmutableMemoryView{UInt8})::Union{BitMatrix, InputError}
     lines = line_views(mem)
-    isempty(lines) && return InputError(nothing)
+    isempty(lines) && return InputError(nothing, "Input cannot be empty")
     first_line_len = length(first(lines))
     v = sizehint!(BitVector(), length(mem))
     n_lines = 0
     for (line_number, line) in enumerate(lines)
         n_lines += 1
-        length(line) == first_line_len || return InputError(line_number)
+        length(line) == first_line_len || return InputError(nothing, "Line lengths are not the same")
         for i in line
             bool = if i == UInt8('@')
                 true
             elseif i == UInt8('.')
                 false
             else
-                return InputError(line_number)
+                return InputError(line_number, "Invalid byte: not ^ or @")
             end
             push!(v, bool)
         end

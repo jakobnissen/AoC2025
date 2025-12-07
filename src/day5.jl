@@ -59,7 +59,7 @@ end
 
 function parse(mem::ImmutableMemoryView)
     lines = ImmutableMemoryView(collect(line_views(mem)))
-    empty_index = @something findfirst(isempty, lines) return InputError(nothing)
+    empty_index = @something findfirst(isempty, lines) return InputError(nothing, "Must have empty line")
 
     # Parse ID ranges
     ranges = Vector{UnitRange{Int}}(undef, empty_index - 1)
@@ -67,7 +67,7 @@ function parse(mem::ImmutableMemoryView)
         p = @something findfirst(==(UInt8('-')), line) return InputError(line_number)
         a = @something tryparse(Int, StringView(line[1:(p - 1)])) return InputError(line_number)
         b = @something tryparse(Int, StringView(line[(p + 1):end])) return InputError(line_number)
-        a > b && return InputError(line_number)
+        a > b && return InputError(line_number, "Empty range")
         ranges[line_number] = a:b
     end
 
