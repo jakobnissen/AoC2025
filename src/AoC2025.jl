@@ -183,7 +183,8 @@ end
 function (@main)(ARGS::Vector{String})
     args = parse_args(ARGS)
     data = load_day_data(args.data_dir, args.days)
-    solutions = map(data) do day_data
+    solutions = @NamedTuple{day::Day, solution::Union{Unimplemented, Solution}}[]
+    for day_data in data
         maybe_data = day_data.data
         solution = if isnothing(maybe_data)
             Unimplemented()
@@ -191,7 +192,7 @@ function (@main)(ARGS::Vector{String})
             solution = solve(day_data.day, ImmutableMemoryView(maybe_data))
             solution isa InputError ? show_and_exit(day_data.day, solution) : solution
         end
-        @NamedTuple{day::Day, solution::Union{Unimplemented, Solution}}((day_data.day, solution))
+        push!(solutions, @NamedTuple{day::Day, solution::Union{Unimplemented, Solution}}((day_data.day, solution)))
     end
     for (; day, solution) in solutions
         if solution === Unimplemented()
