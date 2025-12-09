@@ -1,5 +1,13 @@
 module Day9
 
+# NB: The algorithm used for part 2 here happens to work for AoC inputs,
+# but doesn't solve the question as stated in general.
+# I discovered that late, and now I don't want to redo it.
+
+# Specifically, part 2 may return a rectangle lying outside the polygon.
+# A counter-example input is "1,1\n9,1\n9,2\n2,2\n2,8\n9,8\n9,9\n1,9"
+# Where the correct result for p2 is 18, but this returns 56.
+
 using MemoryViews: ImmutableMemoryView
 using BufferIO: line_views
 using StringViews: StringView
@@ -12,43 +20,56 @@ function solve(mem::ImmutableMemoryView{UInt8})
     candidates = sorted_candidate_pairs(points)
     # This allows easy checking the line between first/last points, since now, all lines
     # are between adjecant points in the list `points`
-    push!(points, first(points))
+    points = ImmutableMemoryView(push!(points, first(points)))
     p1 = first(first(candidates))
+    horizontals = NTuple{3, Int32}[]
+    verticals = empty(horizontals)
+
+    for ((xa, ya), (xb, yb)) in zip(points, points[2:end])
+        if xa == xb
+            push!(verticals, (xa, minmax(ya, yb)...))
+        else
+            @assert ya == yb
+            push!(horizontals, (ya, minmax(xa, xb)...))
+        end
+    end
+    horizontals = ImmutableMemoryView(sort!(horizontals; by = first))
+    verticals = ImmutableMemoryView(sort!(verticals; by = first))
+
     for (area, point1, point2) in candidates
         # We determine if a rectangle is valid by checking if any of the lines
         # intersect with the rectangle.
-        is_valid = true
         (rect_x_min, rect_x_max) = minmax(point1[1], point2[1])
         (rect_y_min, rect_y_max) = minmax(point1[2], point2[2])
-        for (pointa, pointb) in zip(ImmutableMemoryView(points), ImmutableMemoryView(points)[2:end])
-            if pointa[1] == pointb[1]
-                # If line is vertical
-                line_x = pointa[1]
-                (line_y_min, line_y_max) = minmax(pointa[2], pointb[2])
-                if line_x > rect_x_min && line_x < rect_x_max &&
-                        line_y_max > rect_y_min && line_y_min < rect_y_max
-                    is_valid = false
-                    break
-                end
-            elseif pointa[2] == pointb[2]
-                # Line is horizontal
-                line_y = pointa[2]
-                (line_x_min, line_x_max) = minmax(pointa[1], pointb[1])
-                if line_y > rect_y_min && line_y < rect_y_max &&
-                        line_x_max > rect_x_min && line_x_min < rect_x_max
-                    is_valid = false
-                    break
-                end
-            else
-                # we checked line is either horizontal or vertical when parsing
-                throw(AssertionError())
-            end
-        end
-        is_valid && return (p1, area)
+        is_encompassed(horizontals, rect_y_min, rect_y_max, rect_x_min, rect_x_max) &&
+            is_encompassed(verticals, rect_x_min, rect_x_max, rect_y_min, rect_y_max) &&
+            return (p1, area)
     end
     # Unreachable - we know at least one is valid.
     # This is true for any parseable input
     throw(AssertionError())
+end
+
+# Check if no segment in `segment` intersects with the rectangle bounded by
+# the four other arguments.
+# The first value of each segment correspond to the same dimension where the rectangle
+# lies in `min_value:max_value`, and the other dimension of the rectangle is rect_min:rect_max
+function is_encompassed(
+        segments::ImmutableMemoryView{<:Tuple{Real, Real, Real}},
+        min_value::Real,
+        max_value::Real,
+        rect_min::Real,
+        rect_max::Real,
+    )
+    firstpos = searchsortedfirst(segments, min_value + one(min_value); by = first)
+    @inbounds for i in firstpos:lastindex(segments)
+        (line, line_min, line_max) = segments[i]
+        line >= max_value && break
+        if line_max > rect_min && line_min < rect_max
+            return false
+        end
+    end
+    return true
 end
 
 # Parse to a vector of (x_coordinate, y_coordinate), with a bunch of checks
