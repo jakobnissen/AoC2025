@@ -14,3 +14,5 @@ function split_once(mem::MemStrView, byte::UInt8)
     (left, right) = @something split_once(codeunits(mem), byte) return nothing
     return (StringView(left), StringView(right))
 end
+
+n_choose_two(n::Unsigned) = div(widen(n) * widen(n - one(n)), 2)

@@ -4,24 +4,34 @@ using MemoryViews: ImmutableMemoryView, split_each
 using BufferIO: line_views
 using StringViews: StringView
 
-import ..@nota, ..InputError
+import ..@nota, ..InputError, ..n_choose_two
 
 struct Point
-    coords::NTuple{3, Float64}
+    coords::NTuple{3, Int32}
 end
 
-distance(a::Point, b::Point) = sqrt(sum((a.coords .- b.coords) .^ 2; init = 0.0))
+distance(a::Point, b::Point) = Float32(sum(Int.((a.coords .- b.coords)) .^ 2; init = 0))
 
 function Base.tryparse(::Type{Point}, line::AbstractString)
     it = eachsplit(line, ',')
-    (s, st) = iterate(it)
-    a = @something tryparse(Float32, s) return nothing
-    (s, st) = iterate(it, st)
-    b = @something tryparse(Float32, s) return nothing
-    (s, st) = iterate(it, st)
-    c = @something tryparse(Float32, s) return nothing
+    (s, st) = something(iterate(it))
+    a = @something tryparse(Int32, s) return nothing
+    (s, st) = @something iterate(it, st) return nothing
+    b = @something tryparse(Int32, s) return nothing
+    (s, st) = @something iterate(it, st) return nothing
+    c = @something tryparse(Int32, s) return nothing
     isnothing(iterate(it, st)) || return nothing
     return Point((a, b, c))
+end
+
+# We use the function barrier trick to avoid weird type inference when looping over a union-typed value.
+# In the absence of a function barrier, both the iterable and the state to be union-typed,
+# and the compiler cannot infer that one type of the iterable goes with one type of the state.
+function assign(circuits, small, big)
+    for i in small
+        circuits[i] = big
+    end
+    return
 end
 
 function solve(mem::ImmutableMemoryView{UInt8})
@@ -55,9 +65,7 @@ function solve(mem::ImmutableMemoryView{UInt8})
         else
             # Every element in the small circuit is now in the big circuit
             append!(big_circuit, small_circuit)
-            for i in small_circuit
-                circuits[i] = big_circuit
-            end
+            assign(circuits, small_circuit, big_circuit)
         end
 
         # Solve part 1 when 1,000 connections has been made
@@ -80,14 +88,13 @@ unique_by_identity(it) = collect(IdSet{eltype(it)}(it))
 
 function get_sorted_neighbors(v::ImmutableMemoryView{Point})
     length(v) > typemax(UInt16) && error("Can only handle 2^16-1 points in day 8")
-    d = Vector{Tuple{Float32, UInt16, UInt16}}(undef, div(length(v) * (length(v) - 1), 2))
+    len = length(v) % UInt16
+    d = Vector{Tuple{Float32, UInt16, UInt16}}(undef, n_choose_two(len) % Int)
     wi = 0
-    for i in 1:(length(v) - 1)
+    @inbounds for i in 1:(len - 1)
         a = v[i]
-        for j in (i + 1):length(v)
-            b = v[j]
-            wi += 1
-            d[wi] = (Float32(distance(a, b)), i % UInt16, j % UInt16)
+        for j in (i + 1):len
+            d[(wi += 1)] = (distance(a, v[j]), i % UInt16, j % UInt16)
         end
     end
     sort!(d; by = first)
@@ -102,6 +109,5 @@ function parse(mem::ImmutableMemoryView{UInt8})
     end
     return points
 end
-
 
 end # module Day8

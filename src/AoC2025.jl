@@ -66,6 +66,7 @@ include("day5.jl")
 include("day6.jl")
 include("day7.jl")
 include("day8.jl")
+include("day9.jl")
 
 struct Solution
     # We store the solutions as strings, since we just need to print them,
@@ -79,7 +80,7 @@ end
 # A better solution here would be to store a map from the day to the related solver.
 # However, this is not possible in trimmed Julia, because that makes the function call
 # non-static.
-const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x08]
+const SOLVED_DAYS = [unsafe_day(i) for i in 0x01:0x09]
 
 struct Unimplemented end
 
@@ -106,6 +107,8 @@ function solve(day::Day, data::ImmutableMemoryView{UInt8})::Union{Unimplemented,
         stringify(Day7.solve(data))
     elseif x == 8
         stringify(Day8.solve(data))
+    elseif x == 9
+        stringify(Day9.solve(data))
     else
         return Unimplemented()
     end

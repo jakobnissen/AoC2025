@@ -14,7 +14,7 @@ struct Block
     op::Operation
 end
 
-reduce(op::Operation, it::AbstractVector{Int}) = op == mul ? prod(it; init = 1) : sum(it; init = 0)
+reduce(op::Operation, it::ImmutableMemoryView{Int}) = op == mul ? prod(it; init = 1) : sum(it; init = 0)
 reduce(b::Block) = (reduce(b.op, b.horizontal), reduce(b.op, b.vertical))
 
 function solve(mem::ImmutableMemoryView{UInt8})
