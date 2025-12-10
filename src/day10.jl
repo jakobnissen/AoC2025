@@ -6,6 +6,49 @@ using StringViews: StringView
 
 import ..@nota, ..InputError, ..Unimplemented
 
+# This type iterates all integers of type T from 0.
+# First all integers with zero set bits in order, then one set bit, then two etc.
+# Stops at the first integer with more than `max_popcount` ones.
+
+# Limited types supported to avoid overflow in e.g. length computation.
+struct PopCountIterator{T <: Union{UInt8, UInt16, UInt32}}
+    max_value::T # e.g. 0b1111 for four bits
+    max_popcount::UInt8
+
+    # Safety: Must be in 0:8*sizeof(T)
+    global function unsafe_popcount(::Type{T}, max_popcount::UInt8) where {T}
+        max_value = lsh(one(T), max_popcount) - one(T)
+        return new{T}(max_value, max_popcount)
+    end
+end
+
+@inline lsh(a, b) = a << (b & (8 * sizeof(a) - 1))
+@inline lsr(a, b) = a >> (b & (8 * sizeof(a) - 1))
+
+Base.eltype(::Type{PopCountIterator{T}}) where {T} = T
+Base.length(x::PopCountIterator) = x.max_value + 1
+
+function Base.iterate(it::PopCountIterator{T}, state::Tuple{T, UInt8} = (zero(T), 0x00)) where {T}
+    (this_number, popcount) = state
+    popcount > it.max_popcount && return nothing
+    next_number = get_next_same_popcount(this_number)
+    state = if next_number > it.max_value || next_number ≤ this_number
+        new_popcount = popcount + one(popcount)
+        next_number = lsh(one(T), new_popcount) - one(T)
+        (next_number, new_popcount)
+    else
+        (next_number, popcount)
+    end
+    return (this_number, state)
+end
+
+function get_next_same_popcount(n::Unsigned)
+    u = n & -n
+    tz = trailing_zeros(u)
+    v = n + u
+    return v + lsr(n ⊻ v, tz + 2)
+end
+
 function solve(mem::ImmutableMemoryView{UInt8})
     problems = parse(mem)
     p1 = 0
@@ -24,6 +67,7 @@ struct Problem
     # Each button is a bitmask, where a bit shows which light is toggled.
     # Order is the same as in the configuration, so pushing the button is computed
     # by xor'ing the button with the current light state.
+    # At most 32 buttons
     buttons::Vector{UInt32}
     # Target joltages, where first index indicates the joltage of the light in the lowest
     # bit in `configuration`.
@@ -36,23 +80,19 @@ function solve_p1(problem::Problem)
     # Hence, all possible button press sequences can be encoded as a bitvector.
     # Here, I encoded it as a bitfield in a number with a 1 at position N
     # from lowest to highest bit indicating a push of the Nth button.
-    smallest_pushes = length(problem.buttons)
-    for sequence in 0:((1 << length(problem.buttons)) - 1)
-        pushes = count_ones(sequence)
-        # No need to check solutions worse than what we already have
-        pushes ≥ smallest_pushes && continue
+    # Safety: We know there are no more than 32 buttons
+    for sequence in unsafe_popcount(UInt32, length(problem.buttons) % UInt8)
+        remaining_sequence = sequence
         state = problem.configuration
         # Loop over all digits in sequence by clearing bits right to left
-        while !iszero(sequence)
-            state ⊻= @inbounds problem.buttons[trailing_zeros(sequence) + 1]
+        while !iszero(remaining_sequence)
+            state ⊻= @inbounds problem.buttons[trailing_zeros(remaining_sequence) + 1]
             # This bit-trick clears least significant bit
-            sequence &= sequence - one(sequence)
+            remaining_sequence &= remaining_sequence - one(remaining_sequence)
         end
-        if iszero(state)
-            smallest_pushes = pushes
-        end
+        iszero(state) && return count_ones(sequence)
     end
-    return smallest_pushes
+    throw(AssertionError())
 end
 
 function parse(mem::ImmutableMemoryView{UInt8})
@@ -128,6 +168,7 @@ function parse_buttons(mem::ImmutableMemoryView{UInt8}, line_num::Int, n_lights:
         end
         push!(buttons, button)
     end
+    length(buttons) > 32 && return InputError(line_num, "Only up to 32 buttons are supported")
     isempty(length(buttons)) && return InputError(line_num, "Must have at least one button")
     return buttons
 end
