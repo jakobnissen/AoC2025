@@ -50,7 +50,7 @@ function get_next_same_popcount(n::Unsigned)
 end
 
 function solve(mem::ImmutableMemoryView{UInt8})
-    problems = parse(mem)
+    problems = @nota InputError parse(mem)
     p1 = 0
     for problem in problems
         p1 += solve_p1(problem)
@@ -59,8 +59,6 @@ function solve(mem::ImmutableMemoryView{UInt8})
 end
 
 struct Problem
-    # Number of lights in indicator
-    n_lights::UInt32
     # Bits from bottom to top indicates whether the lights from left to right
     # should be switched on to start the machine
     configuration::UInt32
@@ -110,9 +108,9 @@ function parse(mem::ImmutableMemoryView{UInt8})
 
         # Parse indicator lights, buttons and joltages one by one.
         (configuration, n_lights) = @nota InputError parse_indicator_lights(@inbounds(line[1:(p1 - 1)]), line_number)
-        buttons = @nota InputError parse_buttons(@inbounds(line[(p1 + 1):(p2 - 1)]), line_number, Int(n_lights))
-        joltages = @nota InputError parse_joltages(@inbounds(line[(p2 + 1):end]), line_number, Int(n_lights))
-        push!(result, Problem(n_lights, configuration, buttons, joltages))
+        buttons = @nota InputError parse_buttons(@inbounds(line[(p1 + 1):(p2 - 1)]), line_number, n_lights)
+        joltages = @nota InputError parse_joltages(@inbounds(line[(p2 + 1):end]), line_number, n_lights)
+        push!(result, Problem(configuration, buttons, joltages))
     end
     return result
 end
@@ -128,7 +126,7 @@ function parse_indicator_lights(mem::ImmutableMemoryView{UInt8}, line_num::Int)
     mem = @inbounds mem[2:(end - 1)]
 
     # Each ASCII char (byte) indicates an indicator light state (true or false)
-    n_lights = length(mem) % UInt32
+    n_lights = length(mem)
     configuration = UInt32(0)
     for i in eachindex(mem)
         byte = @inbounds mem[i]
@@ -158,7 +156,7 @@ function parse_buttons(mem::ImmutableMemoryView{UInt8}, line_num::Int, n_lights:
         button = UInt32(0)
         # Strip parenthesis, then split by , to get each integer
         for number_mem in split_each(@inbounds(tuple_mem[2:(end - 1)]), UInt8(','))
-            n = tryparse(UInt32, StringView(number_mem))
+            n = tryparse_u32(number_mem)
             if isnothing(n) || n ≥ n_lights
                 return InputError(line_num, "Button is not a parseable int in 0:<n indicator lights>")
             end
@@ -187,14 +185,25 @@ function parse_joltages(mem::ImmutableMemoryView{UInt8}, line_num::Int, n_lights
     for joltage_mem in split_each(@inbounds(mem[2:(end - 1)]), UInt8(','))
         n_joltages += 1
         n_joltages > n_lights && @goto bad_num_joltages
-        n = tryparse(UInt32, StringView(joltage_mem))
-        isnothing(n) && return InputError(line_num, "Joltage not parseable as UInt32")
+        n = tryparse_u32(joltage_mem)
+        isnothing(n) && return InputError(line_num, "Joltage not parseable as UInt32 0:10^10-1")
         @inbounds joltages[n_joltages] = n
     end
     n_joltages == n_lights || @goto bad_num_joltages
     return joltages
     @label bad_num_joltages
     return InputError(line_num, "Joltage list must have one joltage per indicator light")
+end
+
+function tryparse_u32(mem::ImmutableMemoryView{UInt8})
+    length(mem) > 9 && return nothing
+    n = UInt32(0)
+    for byte in mem
+        byte -= 0x30
+        byte > 0x09 && return nothing
+        n = 0x0a * n + byte
+    end
+    return n
 end
 
 end # module Day10
