@@ -14,6 +14,17 @@ using StringViews: StringView
 
 import ..@nota, ..InputError, ..split_once, ..n_choose_two
 
+# Horizontal or vertical segment. E.g. if verital, goes from (min, pos) to (max, pos).
+struct Segment{T}
+    pos::T
+    min::T
+    max::T
+
+    Segment{T}(a::T, b::T, c::T) where {T} = new{T}(a, minmax(b, c)...)
+end
+
+Segment(a::T, b::T, c::T) where {T} = Segment{T}(a, b, c)
+
 function solve(mem::ImmutableMemoryView{UInt8})
     points = @nota InputError parse(mem)
     # Get all (area, point1, point2), sorted from largest to smallest area
@@ -22,19 +33,20 @@ function solve(mem::ImmutableMemoryView{UInt8})
     # are between adjecant points in the list `points`
     points = ImmutableMemoryView(push!(points, first(points)))
     p1 = first(first(candidates))
-    horizontals = NTuple{3, Int32}[]
+    horizontals = Segment{Int32}[]
     verticals = empty(horizontals)
 
     for ((xa, ya), (xb, yb)) in zip(points, points[2:end])
         if xa == xb
-            push!(verticals, (xa, minmax(ya, yb)...))
+            push!(verticals, Segment(xa, ya, yb))
         else
+            # We checked this when parsing
             @assert ya == yb
-            push!(horizontals, (ya, minmax(xa, xb)...))
+            push!(horizontals, Segment(ya, xa, xb))
         end
     end
-    horizontals = ImmutableMemoryView(sort!(horizontals; by = first))
-    verticals = ImmutableMemoryView(sort!(verticals; by = first))
+    horizontals = ImmutableMemoryView(sort!(horizontals; by = x -> x.pos))
+    verticals = ImmutableMemoryView(sort!(verticals; by = x -> x.pos))
 
     for (area, point1, point2) in candidates
         # We determine if a rectangle is valid by checking if any of the lines
@@ -55,17 +67,18 @@ end
 # The first value of each segment correspond to the same dimension where the rectangle
 # lies in `min_value:max_value`, and the other dimension of the rectangle is rect_min:rect_max
 function is_encompassed(
-        segments::ImmutableMemoryView{<:Tuple{Real, Real, Real}},
+        segments::ImmutableMemoryView{<:Segment},
         min_value::Real,
         max_value::Real,
         rect_min::Real,
         rect_max::Real,
     )
-    firstpos = searchsortedfirst(segments, min_value + one(min_value); by = first)
+    target = Segment(min_value + one(min_value), zero(min_value), zero(min_value))
+    firstpos = searchsortedfirst(segments, target; by = x -> x.pos)
     @inbounds for i in firstpos:lastindex(segments)
-        (line, line_min, line_max) = segments[i]
-        line >= max_value && break
-        if line_max > rect_min && line_min < rect_max
+        segment = segments[i]
+        segment.pos >= max_value && break
+        if segment.max > rect_min && segment.min < rect_max
             return false
         end
     end
