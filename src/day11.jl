@@ -10,12 +10,13 @@ function solve(mem::ImmutableMemoryView{UInt8})
     (; children, parents, you, svr, dac, fft, out) = @nota InputError parse(mem)
     all_nodes = Set(1:length(children))
     paths = zeros(Int, length(children))
-    (F, L) = fft ∈ reachable_from(dac, children, all_nodes) ? (dac, fft) : (fft, dac)
-    p1 = @nota InputError count_paths(you, out, children, parents, all_nodes, paths)
+    reachables = Dict(i => reachable_from(i, children, all_nodes) for i in [you, svr, dac, fft])
+    (F, L) = fft ∈ reachables[dac] ? (dac, fft) : (fft, dac)
+    p1 = @nota InputError count_paths(you, out, children, parents, reachables, paths)
     p2 = *(
-        @nota(InputError, count_paths(svr, F, children, parents, all_nodes, paths)),
-        @nota(InputError, count_paths(F, L, children, parents, all_nodes, paths)),
-        @nota(InputError, count_paths(L, out, children, parents, all_nodes, paths))
+        @nota(InputError, count_paths(svr, F, children, parents, reachables, paths)),
+        @nota(InputError, count_paths(F, L, children, parents, reachables, paths)),
+        @nota(InputError, count_paths(L, out, children, parents, reachables, paths))
     )
     return (p1, p2)
 end
@@ -25,11 +26,12 @@ function count_paths(
         to::Int,
         children::Vector{Vector{Int}},
         parents::Vector{Vector{Int}},
-        all_nodes::Set{Int},
+        reachables::Dict{Int, Set{Int}},
         paths::Vector{Int},
     )
+    forward_reachables = reachables[from]
     # Only nodes reachable from `from`, and which can reach `to`, both indluded
-    subgraph = reachable_from(to, parents, reachable_from(from, children, all_nodes))
+    subgraph = reachable_from(to, parents, forward_reachables)
     isempty(subgraph) && return InputError(nothing, "No paths between named nodes")
     topology = topological_order(subgraph, children, parents)
     isnothing(topology) && return InputError(nothing, "Cycle detected between named nodes")
